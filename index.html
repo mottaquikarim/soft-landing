@@ -357,12 +357,17 @@
           if (!matches) return false;
         }
 
-        // Tags (AND logic)
-        const allTags = new Set([...activeTags, ...(preset?.tags || [])]);
-        if (allTags.size > 0) {
-          for (const tag of allTags) {
+        // Tags: AND logic for manually selected tags, OR logic for preset tags
+        if (activeTags.size > 0) {
+          for (const tag of activeTags) {
             if (!person.tags.includes(tag)) return false;
           }
+        }
+        
+        // Preset tags use OR logic (match ANY tag)
+        if (preset?.tags?.length > 0) {
+          const hasAnyTag = preset.tags.some(tag => person.tags.includes(tag));
+          if (!hasAnyTag) return false;
         }
 
         return true;
