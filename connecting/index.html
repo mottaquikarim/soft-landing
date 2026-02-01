@@ -154,6 +154,13 @@
     </div>
   </div>
 
+  <!-- Selection Blurb Display (when viewing shared selection) -->
+  <div id="selection-blurb-section" class="hidden border-b border-warm-200 bg-gradient-to-r from-blue-50 to-transparent">
+    <div class="max-w-6xl mx-auto px-4 py-4">
+      <p id="selection-blurb-text" class="font-serif text-lg italic text-warm-800/80"></p>
+    </div>
+  </div>
+
   <!-- Main Content -->
   <main class="max-w-6xl mx-auto px-4 py-8">
     <!-- Results Count -->
@@ -186,14 +193,32 @@
   </main>
 
   <!-- Selection Bar -->
-  <div id="selection-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-warm-900 text-white px-6 py-4 rounded-xl shadow-xl flex items-center gap-4 opacity-0 pointer-events-none transition-all duration-200">
-    <span><strong id="selected-count">0</strong> selected</span>
-    <button id="share-selected" class="px-4 py-2 bg-white text-warm-900 rounded-lg font-medium hover:bg-warm-100 transition-colors">
-      Share Selection
-    </button>
-    <button id="clear-selected" class="px-4 py-2 border border-white/30 rounded-lg hover:bg-white/10 transition-colors">
-      Clear
-    </button>
+  <div id="selection-bar" class="fixed top-0 left-0 right-0 bg-warm-900 text-white px-4 py-3 shadow-lg z-50 opacity-0 pointer-events-none transition-all duration-200">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+      <div class="flex items-center justify-between sm:justify-start gap-3">
+        <span class="whitespace-nowrap"><strong id="selected-count">0</strong> selected</span>
+        <button id="add-more" class="hidden px-3 py-1.5 text-sm border border-white/30 rounded-lg hover:bg-white/10 transition-colors whitespace-nowrap">
+          + Add More
+        </button>
+        <button id="clear-selected" class="px-3 py-1.5 text-sm border border-white/30 rounded-lg hover:bg-white/10 transition-colors sm:hidden">
+          Clear
+        </button>
+      </div>
+      <input
+        type="text"
+        id="selection-blurb-input"
+        placeholder="Add a note about this selection..."
+        class="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 text-sm focus:outline-none focus:border-white/40"
+      >
+      <div class="flex gap-2">
+        <button id="share-selected" class="flex-1 sm:flex-none px-4 py-2 bg-white text-warm-900 rounded-lg font-medium hover:bg-warm-100 transition-colors text-sm">
+          Share Selection
+        </button>
+        <button id="clear-selected-desktop" class="hidden sm:block px-4 py-2 border border-white/30 rounded-lg hover:bg-white/10 transition-colors text-sm">
+          Clear
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Toast -->
@@ -212,6 +237,7 @@
     let filters = [];
     let selectedIds = new Set();
     let activeTags = new Set();
+    let selectionBlurb = '';
 
     // Initialize
     async function init() {
@@ -288,6 +314,15 @@
       const ids = params.get('ids');
       if (ids) {
         ids.split(',').forEach(id => selectedIds.add(id));
+      }
+
+      // Selection blurb
+      const blurb = params.get('blurb');
+      if (blurb) {
+        selectionBlurb = blurb;
+        document.getElementById('selection-blurb-input').value = blurb;
+        document.getElementById('selection-blurb-text').textContent = `"${blurb}"`;
+        document.getElementById('selection-blurb-section').classList.remove('hidden');
       }
     }
 
@@ -535,10 +570,19 @@
     function updateSelectionBar() {
       const bar = document.getElementById('selection-bar');
       const count = document.getElementById('selected-count');
+      const addMoreBtn = document.getElementById('add-more');
 
       if (selectedIds.size > 0) {
         bar.classList.remove('opacity-0', 'pointer-events-none');
         count.textContent = selectedIds.size;
+
+        // Show "Add More" button if viewing a filtered selection (ids in URL)
+        const idsParam = new URLSearchParams(window.location.search).get('ids');
+        if (idsParam) {
+          addMoreBtn.classList.remove('hidden');
+        } else {
+          addMoreBtn.classList.add('hidden');
+        }
       } else {
         bar.classList.add('opacity-0', 'pointer-events-none');
       }
@@ -594,21 +638,43 @@
     });
 
     document.getElementById('share-selected').addEventListener('click', () => {
-      const url = new URL(window.location.href);
-      // Clear other params, just keep ids
       const newParams = new URLSearchParams();
       newParams.set('ids', Array.from(selectedIds).join(','));
+
+      // Include blurb if provided
+      const blurbInput = document.getElementById('selection-blurb-input').value.trim();
+      if (blurbInput) {
+        newParams.set('blurb', blurbInput);
+      }
+
       navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?${newParams.toString()}`);
       showToast('Selection link copied!');
     });
 
-    document.getElementById('clear-selected').addEventListener('click', () => {
+    function clearSelection() {
       selectedIds.clear();
+      selectionBlurb = '';
+      document.getElementById('selection-blurb-input').value = '';
+      document.getElementById('selection-blurb-section').classList.add('hidden');
       updateUrl();
       render();
-    });
+    }
+
+    document.getElementById('clear-selected').addEventListener('click', clearSelection);
+    document.getElementById('clear-selected-desktop').addEventListener('click', clearSelection);
 
     document.getElementById('clear-filters').addEventListener('click', clearAllFilters);
+
+    document.getElementById('add-more').addEventListener('click', () => {
+      // Remove ids from URL to show all people, but keep selections
+      const params = new URLSearchParams(window.location.search);
+      params.delete('ids');
+      const newUrl = params.toString()
+        ? `${window.location.pathname}?${params.toString()}`
+        : window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+      render();
+    });
 
     // Initialize
     init();
