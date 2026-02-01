@@ -269,13 +269,8 @@
       const filter = filters.find(f => f.slug === slug);
       if (!filter) return;
 
-      // Apply tags
-      filter.tags.forEach(t => activeTags.add(t));
-
-      // Apply location
-      if (filter.locations.length > 0) {
-        // For preset, we'll filter by multiple locations in getFiltered
-      }
+      // Don't add preset tags to activeTags - the OR logic in getFiltered handles them
+      // activeTags is only for manually clicked tags (AND logic)
 
       // Show blurb
       if (filter.blurb) {
@@ -443,13 +438,11 @@
 
     function renderActiveTags() {
       const container = document.getElementById('active-tags');
+      const presetSlug = document.getElementById('preset-filter').value;
+      const preset = filters.find(f => f.slug === presetSlug);
       
-      if (activeTags.size === 0) {
-        container.innerHTML = '';
-        return;
-      }
-
-      container.innerHTML = Array.from(activeTags).map(tag => `
+      // Combine manual tags and preset tags for display
+      const manualTagsHtml = Array.from(activeTags).map(tag => `
         <span class="inline-flex items-center gap-1 px-3 py-1 bg-accent text-white text-sm rounded-full">
           ${tag}
           <button onclick="removeTag('${tag}')" class="hover:bg-white/20 rounded-full p-0.5 transition-colors">
@@ -457,6 +450,15 @@
           </button>
         </span>
       `).join('');
+      
+      // Show preset tags as non-removable pills (different style)
+      const presetTagsHtml = (preset?.tags || []).map(tag => `
+        <span class="inline-flex items-center gap-1 px-3 py-1 bg-warm-800 text-white text-sm rounded-full opacity-70">
+          ${tag}
+        </span>
+      `).join('');
+      
+      container.innerHTML = manualTagsHtml + presetTagsHtml;
     }
 
     function addTag(tag) {
